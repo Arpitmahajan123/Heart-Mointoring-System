@@ -31,10 +31,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Heart rate readings routes
   app.get("/api/patients/:patientId/heart-rate", async (req, res) => {
     try {
-      const readings = await storage.getHeartRateReadings(req.params.patientId);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const readings = await storage.getHeartRateReadings(req.params.patientId, limit);
       res.json(readings);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch heart rate readings" });
+    }
+  });
+
+  // Historical heart rate data endpoint for charts
+  app.get("/api/patients/:patientId/heart-rate/history", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 500;
+      const readings = await storage.getHeartRateReadings(req.params.patientId, limit);
+      
+      // Group by minute for cleaner historical view
+      const groupedReadings = readings.reduce((acc, reading) => {
+        const minuteKey = new Date(reading.timestamp).toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+        if (!acc[minuteKey]) {
+          acc[minuteKey] = [];
+        }
+        acc[minuteKey].push(reading);
+        return acc;
+      }, {} as Record<string, typeof readings>);
+
+      // Calculate averages per minute
+      const historyData = Object.entries(groupedReadings).map(([timestamp, readings]) => ({
+        timestamp: new Date(timestamp),
+        heartRate: Math.round(readings.reduce((sum, r) => sum + r.heartRate, 0) / readings.length),
+        signalQuality: Math.round(readings.reduce((sum, r) => sum + (r.signalQuality || 0), 0) / readings.length),
+        count: readings.length
+      })).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+      res.json(historyData);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch historical heart rate data" });
     }
   });
 
@@ -173,17 +204,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
-  wss.on('connection', (ws: WebSocket) => {
+  wss.on('connection', async (ws: WebSocket) => {
     console.log('Client connected to sensor WebSocket');
+
+    // Create a test patient if none exists (for demo purposes)
+    let testPatient;
+    try {
+      // Try to find an existing patient first, otherwise create one
+      const allPatients = await storage.getHeartRateReadings('', 1); // This will help us find if we have any data
+      // For simplicity, create a patient each time or use a known patient ID
+      testPatient = await storage.createPatient({
+        name: 'Demo Patient',
+        age: 35
+      });
+      console.log('Created demo patient:', testPatient.id);
+    } catch (error) {
+      console.error('Error creating demo patient:', error);
+    }
 
     // Send initial connection confirmation
     ws.send(JSON.stringify({ type: "connected", message: "All sensors connected" }));
 
     // Simulate real-time heart rate data every second
-    const heartRateInterval = setInterval(() => {
+    const heartRateInterval = setInterval(async () => {
       if (ws.readyState === WebSocket.OPEN) {
         const data = simulateHeartRateData();
         ws.send(JSON.stringify(data));
+        
+        // Save heart rate data to database
+        if (testPatient) {
+          try {
+            await storage.createHeartRateReading({
+              patientId: testPatient.id,
+              heartRate: data.heartRate,
+              signalQuality: data.signalQuality
+            });
+          } catch (error) {
+            console.error('Error saving heart rate data:', error);
+          }
+        }
       }
     }, 1000);
 

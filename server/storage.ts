@@ -1,5 +1,7 @@
-import { type Patient, type InsertPatient, type HeartRateReading, type InsertHeartRateReading, type GpsReading, type InsertGpsReading, type AccelerometerReading, type InsertAccelerometerReading } from "@shared/schema";
+import { type Patient, type InsertPatient, type HeartRateReading, type InsertHeartRateReading, type GpsReading, type InsertGpsReading, type AccelerometerReading, type InsertAccelerometerReading, patients, heartRateReadings, gpsReadings, accelerometerReadings } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Patient methods
@@ -158,4 +160,97 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  async getPatient(id: string): Promise<Patient | undefined> {
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    return patient || undefined;
+  }
+
+  async createPatient(insertPatient: InsertPatient): Promise<Patient> {
+    const [patient] = await db
+      .insert(patients)
+      .values(insertPatient)
+      .returning();
+    return patient;
+  }
+
+  async updatePatient(id: string, updates: Partial<InsertPatient>): Promise<Patient | undefined> {
+    const [patient] = await db
+      .update(patients)
+      .set(updates)
+      .where(eq(patients.id, id))
+      .returning();
+    return patient || undefined;
+  }
+
+  async getHeartRateReadings(patientId: string, limit = 100): Promise<HeartRateReading[]> {
+    const readings = await db
+      .select()
+      .from(heartRateReadings)
+      .where(eq(heartRateReadings.patientId, patientId))
+      .orderBy(desc(heartRateReadings.timestamp))
+      .limit(limit);
+    return readings;
+  }
+
+  async createHeartRateReading(insertReading: InsertHeartRateReading): Promise<HeartRateReading> {
+    const [reading] = await db
+      .insert(heartRateReadings)
+      .values(insertReading)
+      .returning();
+    return reading;
+  }
+
+  async getLatestHeartRateReading(patientId: string): Promise<HeartRateReading | undefined> {
+    const readings = await this.getHeartRateReadings(patientId, 1);
+    return readings[0];
+  }
+
+  async getGpsReadings(patientId: string, limit = 100): Promise<GpsReading[]> {
+    const readings = await db
+      .select()
+      .from(gpsReadings)
+      .where(eq(gpsReadings.patientId, patientId))
+      .orderBy(desc(gpsReadings.timestamp))
+      .limit(limit);
+    return readings;
+  }
+
+  async createGpsReading(insertReading: InsertGpsReading): Promise<GpsReading> {
+    const [reading] = await db
+      .insert(gpsReadings)
+      .values(insertReading)
+      .returning();
+    return reading;
+  }
+
+  async getLatestGpsReading(patientId: string): Promise<GpsReading | undefined> {
+    const readings = await this.getGpsReadings(patientId, 1);
+    return readings[0];
+  }
+
+  async getAccelerometerReadings(patientId: string, limit = 100): Promise<AccelerometerReading[]> {
+    const readings = await db
+      .select()
+      .from(accelerometerReadings)
+      .where(eq(accelerometerReadings.patientId, patientId))
+      .orderBy(desc(accelerometerReadings.timestamp))
+      .limit(limit);
+    return readings;
+  }
+
+  async createAccelerometerReading(insertReading: InsertAccelerometerReading): Promise<AccelerometerReading> {
+    const [reading] = await db
+      .insert(accelerometerReadings)
+      .values(insertReading)
+      .returning();
+    return reading;
+  }
+
+  async getLatestAccelerometerReading(patientId: string): Promise<AccelerometerReading | undefined> {
+    const readings = await this.getAccelerometerReadings(patientId, 1);
+    return readings[0];
+  }
+}
+
+export const storage = new DatabaseStorage();

@@ -9,6 +9,7 @@ import AlertModal from "./alert-modal";
 import GpsDisplay from "./gps-display";
 import AccelerometerDisplay from "./accelerometer-display";
 import EcgChart from "./ecg-chart";
+import { HistoricalHeartRateChart } from "./historical-heart-rate-chart";
 import { useHeartRate } from "@/hooks/use-heart-rate";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -130,6 +131,11 @@ export default function HeartMonitorDashboard() {
         {/* ECG Waveform - Full Width */}
         <div className="mb-8">
           <EcgChart ecgData={ecgData} isConnected={isConnected} data-testid="ecg-chart" />
+        </div>
+
+        {/* Historical Heart Rate Trends - Full Width */}
+        <div className="mb-8">
+          <HistoricalHeartRateChart patientId="demo-patient-id" limit={300} />
         </div>
 
         {/* GPS and Accelerometer */}
