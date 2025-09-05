@@ -5,6 +5,24 @@ interface HeartRateData {
   heartRate: number;
 }
 
+interface GpsData {
+  latitude: number;
+  longitude: number;
+  altitude: number | null;
+  accuracy: number | null;
+  speed: number | null;
+}
+
+interface AccelerometerData {
+  accelX: number;
+  accelY: number;
+  accelZ: number;
+  gyroX: number;
+  gyroY: number;
+  gyroZ: number;
+  temperature: number | null;
+}
+
 export function useHeartRate() {
   const [currentHeartRate, setCurrentHeartRate] = useState(0);
   const [averageHeartRate, setAverageHeartRate] = useState(0);
@@ -12,6 +30,8 @@ export function useHeartRate() {
   const [signalQuality, setSignalQuality] = useState(0);
   const [lastUpdate, setLastUpdate] = useState("Never");
   const [realtimeData, setRealtimeData] = useState<HeartRateData[]>([]);
+  const [gpsData, setGpsData] = useState<GpsData | null>(null);
+  const [accelerometerData, setAccelerometerData] = useState<AccelerometerData | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null);
 
   // Initialize WebSocket connection
@@ -28,6 +48,7 @@ export function useHeartRate() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        
         if (data.type === "heartRate") {
           setCurrentHeartRate(data.heartRate);
           setSignalQuality(data.signalQuality || 0);
@@ -51,6 +72,24 @@ export function useHeartRate() {
           setAverageHeartRate(prev => {
             if (prev === 0) return data.heartRate;
             return Math.round((prev + data.heartRate) / 2);
+          });
+        } else if (data.type === "gps") {
+          setGpsData({
+            latitude: data.latitude,
+            longitude: data.longitude,
+            altitude: data.altitude,
+            accuracy: data.accuracy,
+            speed: data.speed
+          });
+        } else if (data.type === "accelerometer") {
+          setAccelerometerData({
+            accelX: data.accelX,
+            accelY: data.accelY,
+            accelZ: data.accelZ,
+            gyroX: data.gyroX,
+            gyroY: data.gyroY,
+            gyroZ: data.gyroZ,
+            temperature: data.temperature
           });
         }
       } catch (error) {
@@ -110,6 +149,8 @@ export function useHeartRate() {
     signalQuality,
     lastUpdate,
     realtimeData,
+    gpsData,
+    accelerometerData,
     sendCommand
   };
 }

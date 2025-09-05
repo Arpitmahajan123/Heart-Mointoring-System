@@ -71,11 +71,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
+  // Simulate GPS Module data
+  const simulateGpsData = () => {
+    // Base location with small variations to simulate movement
+    const baseLat = 40.7128; // NYC coordinates as base
+    const baseLng = -74.0060;
+    const latVariation = (Math.random() - 0.5) * 0.001; // Small movement range
+    const lngVariation = (Math.random() - 0.5) * 0.001;
+    
+    return {
+      type: "gps",
+      latitude: baseLat + latVariation,
+      longitude: baseLng + lngVariation,
+      altitude: Math.round(10 + Math.random() * 5), // 10-15m altitude
+      accuracy: Math.round(3 + Math.random() * 2), // 3-5m accuracy
+      speed: Math.round(Math.random() * 5), // 0-5 km/h walking speed
+      timestamp: new Date().toISOString()
+    };
+  };
+
+  // Simulate MPU 6050 accelerometer/gyroscope data
+  const simulateMpu6050Data = () => {
+    // Simulate normal human movement patterns
+    const accelX = (Math.random() - 0.5) * 2; // ±1g variation
+    const accelY = (Math.random() - 0.5) * 2;
+    const accelZ = 9.8 + (Math.random() - 0.5) * 0.5; // ~9.8g with small variation
+    
+    const gyroX = (Math.random() - 0.5) * 50; // ±25 deg/s
+    const gyroY = (Math.random() - 0.5) * 50;
+    const gyroZ = (Math.random() - 0.5) * 50;
+    
+    const temperature = 36.5 + (Math.random() - 0.5) * 2; // 35.5-37.5°C body temp range
+    
+    return {
+      type: "accelerometer",
+      accelX: Math.round(accelX * 100) / 100,
+      accelY: Math.round(accelY * 100) / 100,
+      accelZ: Math.round(accelZ * 100) / 100,
+      gyroX: Math.round(gyroX * 100) / 100,
+      gyroY: Math.round(gyroY * 100) / 100,
+      gyroZ: Math.round(gyroZ * 100) / 100,
+      temperature: Math.round(temperature * 10) / 10,
+      timestamp: new Date().toISOString()
+    };
+  };
+
   wss.on('connection', (ws: WebSocket) => {
-    console.log('Client connected to heart rate WebSocket');
+    console.log('Client connected to sensor WebSocket');
 
     // Send initial connection confirmation
-    ws.send(JSON.stringify({ type: "connected", message: "Heart rate monitor connected" }));
+    ws.send(JSON.stringify({ type: "connected", message: "All sensors connected" }));
 
     // Simulate real-time heart rate data every second
     const heartRateInterval = setInterval(() => {
@@ -84,6 +129,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ws.send(JSON.stringify(data));
       }
     }, 1000);
+
+    // Simulate GPS data every 2 seconds (GPS updates slower)
+    const gpsInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        const data = simulateGpsData();
+        ws.send(JSON.stringify(data));
+      }
+    }, 2000);
+
+    // Simulate accelerometer data every 100ms (high frequency sensor)
+    const accelerometerInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        const data = simulateMpu6050Data();
+        ws.send(JSON.stringify(data));
+      }
+    }, 100);
 
     ws.on('message', (message: string) => {
       try {
@@ -107,13 +168,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     ws.on('close', () => {
-      console.log('Client disconnected from heart rate WebSocket');
+      console.log('Client disconnected from sensor WebSocket');
       clearInterval(heartRateInterval);
+      clearInterval(gpsInterval);
+      clearInterval(accelerometerInterval);
     });
 
     ws.on('error', (error) => {
       console.error('WebSocket error:', error);
       clearInterval(heartRateInterval);
+      clearInterval(gpsInterval);
+      clearInterval(accelerometerInterval);
     });
   });
 

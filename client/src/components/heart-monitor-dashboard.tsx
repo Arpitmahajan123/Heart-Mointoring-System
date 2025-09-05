@@ -6,12 +6,14 @@ import RealTimeChart from "./real-time-chart";
 import HealthStatusCard from "./health-status-card";
 import HeartRateZones from "./heart-rate-zones";
 import AlertModal from "./alert-modal";
+import GpsDisplay from "./gps-display";
+import AccelerometerDisplay from "./accelerometer-display";
 import { useHeartRate } from "@/hooks/use-heart-rate";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function HeartMonitorDashboard() {
-  const { currentHeartRate, averageHeartRate, isConnected, signalQuality, lastUpdate } = useHeartRate();
+  const { currentHeartRate, averageHeartRate, isConnected, signalQuality, lastUpdate, gpsData, accelerometerData } = useHeartRate();
   const [patient, setPatient] = useState({ name: "", age: 0 });
   const [showAlert, setShowAlert] = useState(false);
   const [alertData, setAlertData] = useState({ heartRate: 0, message: "", safeRange: "" });
@@ -124,15 +126,31 @@ export default function HeartMonitorDashboard() {
           <HeartRateZones patientAge={patient.age} data-testid="heart-rate-zones" />
         </div>
 
+        {/* GPS and Accelerometer */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <GpsDisplay gpsData={gpsData} data-testid="gps-display" />
+          <AccelerometerDisplay accelerometerData={accelerometerData} data-testid="accelerometer-display" />
+        </div>
+
         {/* Connection Status */}
         <Card data-testid="card-connection-status">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent pulse-animation' : 'bg-destructive'}`}></div>
-                <span className="text-sm font-medium text-foreground">AD8232 Sensor</span>
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent pulse-animation' : 'bg-destructive'}`}></div>
+                  <span className="text-sm font-medium text-foreground">AD8232 Heart Rate</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${gpsData ? 'bg-accent pulse-animation' : 'bg-destructive'}`}></div>
+                  <span className="text-sm font-medium text-foreground">GPS Module</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${accelerometerData ? 'bg-accent pulse-animation' : 'bg-destructive'}`}></div>
+                  <span className="text-sm font-medium text-foreground">MPU 6050</span>
+                </div>
                 <span className="text-xs text-muted-foreground" data-testid="text-connection-status">
-                  {isConnected ? 'Connected' : 'Disconnected'}
+                  {isConnected ? 'All Systems Active' : 'System Offline'}
                 </span>
               </div>
               <div className="flex items-center space-x-4 text-xs text-muted-foreground">
