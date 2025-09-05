@@ -8,12 +8,13 @@ import HeartRateZones from "./heart-rate-zones";
 import AlertModal from "./alert-modal";
 import GpsDisplay from "./gps-display";
 import AccelerometerDisplay from "./accelerometer-display";
+import EcgChart from "./ecg-chart";
 import { useHeartRate } from "@/hooks/use-heart-rate";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function HeartMonitorDashboard() {
-  const { currentHeartRate, averageHeartRate, isConnected, signalQuality, lastUpdate, gpsData, accelerometerData } = useHeartRate();
+  const { currentHeartRate, averageHeartRate, isConnected, signalQuality, lastUpdate, gpsData, accelerometerData, ecgData } = useHeartRate();
   const [patient, setPatient] = useState({ name: "", age: 0 });
   const [showAlert, setShowAlert] = useState(false);
   const [alertData, setAlertData] = useState({ heartRate: 0, message: "", safeRange: "" });
@@ -124,6 +125,11 @@ export default function HeartMonitorDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <RealTimeChart data-testid="real-time-chart" />
           <HeartRateZones patientAge={patient.age} data-testid="heart-rate-zones" />
+        </div>
+
+        {/* ECG Waveform - Full Width */}
+        <div className="mb-8">
+          <EcgChart ecgData={ecgData} isConnected={isConnected} data-testid="ecg-chart" />
         </div>
 
         {/* GPS and Accelerometer */}

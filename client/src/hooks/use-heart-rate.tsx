@@ -23,6 +23,11 @@ interface AccelerometerData {
   temperature: number | null;
 }
 
+interface EcgData {
+  time: number;
+  amplitude: number;
+}
+
 export function useHeartRate() {
   const [currentHeartRate, setCurrentHeartRate] = useState(0);
   const [averageHeartRate, setAverageHeartRate] = useState(0);
@@ -32,6 +37,7 @@ export function useHeartRate() {
   const [realtimeData, setRealtimeData] = useState<HeartRateData[]>([]);
   const [gpsData, setGpsData] = useState<GpsData | null>(null);
   const [accelerometerData, setAccelerometerData] = useState<AccelerometerData | null>(null);
+  const [ecgData, setEcgData] = useState<EcgData[]>([]);
   const [socket, setSocket] = useState<WebSocket | null>(null);
 
   // Initialize WebSocket connection
@@ -90,6 +96,16 @@ export function useHeartRate() {
             gyroY: data.gyroY,
             gyroZ: data.gyroZ,
             temperature: data.temperature
+          });
+        } else if (data.type === "ecg") {
+          const currentTime = Date.now();
+          setEcgData(prev => {
+            const newData = [...prev, { 
+              time: currentTime, 
+              amplitude: data.amplitude 
+            }];
+            // Keep last 500 points (10 seconds at 50Hz) for smooth display
+            return newData.slice(-500);
           });
         }
       } catch (error) {
@@ -151,6 +167,7 @@ export function useHeartRate() {
     realtimeData,
     gpsData,
     accelerometerData,
+    ecgData,
     sendCommand
   };
 }

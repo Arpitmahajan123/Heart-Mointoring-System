@@ -116,6 +116,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
+  // ECG waveform simulation variables
+  let ecgTimeOffset = 0;
+  const baseHeartRate = 72; // BPM
+  const samplingRate = 250; // samples per second (typical ECG sampling rate)
+
+  // Simulate ECG waveform data
+  const simulateEcgWaveform = () => {
+    const currentTime = Date.now() / 1000; // Current time in seconds
+    const heartPeriod = 60 / baseHeartRate; // Period of one heartbeat in seconds
+    
+    // Calculate position within current heartbeat cycle
+    const cyclePosition = (currentTime % heartPeriod) / heartPeriod;
+    
+    // Generate ECG waveform points (P-QRS-T complex)
+    let amplitude = 0;
+    
+    // P wave (atrial depolarization) - occurs at 0-0.1 of cycle
+    if (cyclePosition >= 0 && cyclePosition <= 0.1) {
+      const pPosition = (cyclePosition - 0) / 0.1;
+      amplitude += 0.25 * Math.sin(Math.PI * pPosition);
+    }
+    
+    // QRS complex (ventricular depolarization) - occurs at 0.15-0.25 of cycle
+    if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+      const qrsPosition = (cyclePosition - 0.15) / 0.1;
+      // QRS is the largest deflection
+      if (qrsPosition <= 0.3) {
+        amplitude -= 0.3; // Q wave (small negative)
+      } else if (qrsPosition <= 0.7) {
+        amplitude += 1.5 * Math.sin(Math.PI * (qrsPosition - 0.3) / 0.4); // R wave (large positive)
+      } else {
+        amplitude -= 0.4; // S wave (negative)
+      }
+    }
+    
+    // T wave (ventricular repolarization) - occurs at 0.4-0.7 of cycle
+    if (cyclePosition >= 0.4 && cyclePosition <= 0.7) {
+      const tPosition = (cyclePosition - 0.4) / 0.3;
+      amplitude += 0.3 * Math.sin(Math.PI * tPosition);
+    }
+    
+    // Add some noise for realism
+    amplitude += (Math.random() - 0.5) * 0.05;
+    
+    // Normalize amplitude to mV scale (typical ECG is 0.5-2 mV)
+    amplitude = Math.round(amplitude * 1000) / 1000; // Round to 3 decimal places
+    
+    ecgTimeOffset += 1000 / samplingRate; // Increment time offset
+    
+    return {
+      type: "ecg",
+      amplitude: amplitude,
+      timestamp: new Date().toISOString(),
+      cyclePosition: Math.round(cyclePosition * 1000) / 1000
+    };
+  };
+
   wss.on('connection', (ws: WebSocket) => {
     console.log('Client connected to sensor WebSocket');
 
@@ -146,6 +203,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }, 100);
 
+    // Simulate ECG data at 50Hz (every 20ms) for real-time waveform
+    const ecgInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        const data = simulateEcgWaveform();
+        ws.send(JSON.stringify(data));
+      }
+    }, 20);
+
     ws.on('message', (message: string) => {
       try {
         const data = JSON.parse(message);
@@ -172,6 +237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       clearInterval(heartRateInterval);
       clearInterval(gpsInterval);
       clearInterval(accelerometerInterval);
+      clearInterval(ecgInterval);
     });
 
     ws.on('error', (error) => {
@@ -179,6 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       clearInterval(heartRateInterval);
       clearInterval(gpsInterval);
       clearInterval(accelerometerInterval);
+      clearInterval(ecgInterval);
     });
   });
 
